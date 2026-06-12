@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural Networks — How It Really Works</title>
+<meta name="description" content="How a neural network trains, forms patterns, and makes predictions — using digit recognition as the example.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #f9f7f3;
+    --surface: #ffffff;
+    --border: #e2ddd6;
+    --text: #1c1917;
+    --text-dim: #6b6560;
+    --amber: #d97706;
+    --amber-light: #fef3c7;
+    --amber-mid: #fde68a;
+    --cyan: #0891b2;
+    --cyan-light: #e0f2fe;
+    --green: #15803d;
+    --green-light: #dcfce7;
+    --step-num: #92400e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    padding: 0 16px 80px;
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 56px 0 40px;
+    border-bottom: 2px solid var(--text);
+    margin-bottom: 56px;
+  }
+
+  h1 {
+    font-size: clamp(28px, 5vw, 46px);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 18px;
+  }
+
+  .hero-sub {
+    color: var(--text-dim);
+    font-size: 17px;
+    max-width: 580px;
+    line-height: 1.65;
+  }
+
+  /* ── SECTION BLOCKS ── */
+  .chapter {
+    margin-bottom: 64px;
+  }
+
+  .chapter-eye {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  h2 {
+    font-size: clamp(20px, 3vw, 26px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 16px;
+    line-height: 1.3;
+  }
+
+  p { margin-bottom: 16px; color: var(--text); }
+  p:last-child { margin-bottom: 0; }
+
+  strong { font-weight: 600; }
+
+  /* ── CALLOUT BOXES ── */
+  .callout {
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 24px 0;
+    font-size: 15px;
+    line-height: 1.65;
+    border: 1px solid transparent;
+  }
+
+  .callout-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .callout.amber { background: var(--amber-light); border-color: var(--amber-mid); }
+  .callout.amber .callout-title { color: var(--amber); }
+
+  .callout.cyan { background: var(--cyan-light); border-color: #bae6fd; }
+  .callout.cyan .callout-title { color: var(--cyan); }
+
+  .callout.green { background: var(--green-light); border-color: #bbf7d0; }
+  .callout.green .callout-title { color: var(--green); }
+
+  /* ── STEP CARDS ── */
+  .steps { display: flex; flex-direction: column; gap: 0; margin: 28px 0; }
+
+  .step {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 0 20px;
+    position: relative;
+  }
+
+  .step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 25px;
+    top: 52px;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .step-circle {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--text);
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-body {
+    padding: 12px 0 36px;
+  }
+
+  .step-body h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.35;
+  }
+
+  .step-body p {
+    font-size: 15px;
+    color: var(--text-dim);
+    margin-bottom: 0;
+  }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 24px 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface);
+  }
+
+  th {
+    background: #f1ede7;
+    padding: 10px 14px;
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-dim);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 10px 14px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  td.row-head {
+    font-weight: 600;
+    text-align: left;
+    background: #fafaf8;
+    color: var(--text);
+  }
+
+  td.pos { color: #15803d; }
+  td.neg { color: #b91c1c; }
+  td.highlight { background: #fef3c7; font-weight: 700; color: var(--amber); }
+
+  /* ── MATH BOX ── */
+  .math-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  .math-block .line { display: block; white-space: nowrap; }
+  .math-block .result { color: var(--amber); font-weight: 700; }
+  .math-block .winner { color: var(--green); font-weight: 700; }
+  .math-block .label { color: var(--text-dim); }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 28px 0;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .flow-box {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.35;
+    flex: 1;
+    min-width: 100px;
+  }
+
+  .flow-box.amber-box { background: var(--amber-light); border-color: var(--amber-mid); }
+  .flow-box.cyan-box { background: var(--cyan-light); border-color: #bae6fd; }
+  .flow-box.green-box { background: var(--green-light); border-color: #bbf7d0; }
+
+  .flow-arrow {
+    font-size: 20px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  /* ── SUMMARY ── */
+  .summary {
+    background: var(--text);
+    color: #fff;
+    border-radius: 12px;
+    padding: 32px;
+    margin: 48px 0 0;
+  }
+
+  .summary h2 { color: #fff; margin-bottom: 20px; }
+
+  .summary-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+    align-items: flex-start;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .summary-row:last-child { margin-bottom: 0; }
+
+  .tick {
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .summary-row p { color: rgba(255,255,255,0.82); margin: 0; }
+  .summary-row strong { color: #fff; }
+
+  /* ── DIVIDER ── */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 560px) {
+    .flow { flex-direction: column; align-items: stretch; }
+    .flow-arrow { transform: rotate(90deg); text-align: center; }
+    .step { grid-template-columns: 44px 1fr; }
+    .step-circle { width: 44px; height: 44px; font-size: 16px; }
+    .step:not(:last-child)::before { left: 21px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>Neural Networks — How It Really Works</h1>
+    <p class="hero-sub">
+      No maths degree needed. We will use a simple example — teaching a computer to tell apart the digits 3 and 4 — and walk through every step, from the very first random guess all the way to a confident prediction.
+    </p>
+  </header>
+
+
+  <!-- ══════════════════════════════════════════════
+       CHAPTER 1 — THE SETUP
+  ══════════════════════════════════════════════ -->
+  <div class="chapter">
+    <div class="chapter-eye">Chapter 1</div>
+    <h2>What are we building, and what does it see?</h2>
+
+    <p>
+      Imagine you want to teach a computer to look at a handwritten digit and say "that is a 3" or "that is a 4." The computer cannot look at a picture the way you do. It needs numbers.
+    </p>
+
+    <p>
+      So first, we break the image into a grid of tiny squares called <strong>pixels</strong>. In our example the grid is 8 wide and 8 tall, giving us <strong>64 pixels</strong>. Each pixel is either <strong>ON (1)</strong> if there is ink there, or <strong>OFF (0)</strong> if there is no ink. That gives the computer a list of 64 numbers — and that list is the only thing it ever sees.
+    </p>
+
+    <div class="callout amber">
+      <div class="callout-title">The key idea</div>
+      The computer never sees a "curve" or a "line." It only sees a list of 64 ones and zeros. All of its cleverness comes from what it does with those 64 numbers.
+    </div>
+
+    <p>
+      Inside the network, between those 64 pixels and the final answer, we place <strong>8 workers called hidden neurons</strong> (often written H1 through H8). Think of them as 8 analysts sitting in a room, each one studying the same 64 pixels but looking for a different pattern.
+    </p>
+
+    <p>
+      Each analyst carries a private <strong>checklist of 64 numbers</strong> — one number for each pixel position. This checklist is called a <strong>weight list</strong>. At the start, every number on every checklist is just a random guess.
+    </p>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════
+       CHAPTER 2 — TRAINING
+  ══════════════════════════════════════════════ -->
+  <div class="chapter">
+    <div class="chapter-eye">Chapter 2</div>
+    <h2>Training — how the network learns from examples</h2>
+
+    <p>
+      Learning works by showing the network <strong>thousands of labelled examples</strong>. We take a handwritten image of the digit 3, tell the network "this is a 3," and let it make a guess. Then we check if the guess was right or wrong and nudge the weight numbers a tiny bit in the direction that would have made it less wrong. We do the same for thousands of images of 3 and 4, written by many different people in many different styles.
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-circle">1</div>
+        <div class="step-body">
+          <h3>Show the network an image with a label</h3>
+          <p>For example: here is an image of the digit 3. It is labelled "3."</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-circle">2</div>
+        <div class="step-body">
+          <h3>The network makes a guess</h3>
+          <p>Using its current weight numbers (random at first), each analyst computes a score, and the network announces a prediction — probably wrong early on.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-circle">3</div>
+        <div class="step-body">
+          <h3>Check the guess against the label</h3>
+          <p>Was it right or wrong? If wrong, by how much?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-circle">4</div>
+        <div class="step-body">
+          <h3>Nudge the weights in the right direction</h3>
+          <p>Every weight number gets adjusted by a tiny amount — just enough to make this particular example a little less wrong next time. This is called <strong>backpropagation</strong>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-circle">5</div>
+        <div class="step-body">
+          <h3>Repeat — thousands of times</h3>
+          <p>After thousands of nudges across thousands of examples, the weights stop being random. They settle into useful patterns.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout amber">
+      <div class="callout-title">Important — nobody gives the analysts their jobs</div>
+      You never say "H1, you look for curves" or "H5, you look for straight lines." The analysts figure out their own specialities by themselves, purely because certain patterns turned out to be useful for telling 3 from 4. H1 might end up caring about the top-left corner. H6 might end up caring about two horizontal lines in the middle. Nobody planned this — it emerges from thousands of nudges.
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════
+       CHAPTER 3 — TWO TABLES
+  ══════════════════════════════════════════════ -->
+  <div class="chapter">
+    <div class="chapter-eye">Chapter 3</div>
+    <h2>What the network stores after training — two tables</h2>
+
+    <p>
+      After training is done, all the learning is frozen into two tables that live in the computer's memory.
+    </p>
+
+    <p>
+      <strong>Table W1 — The 8 checklists.</strong> Each of the 8 analysts has a checklist of 64 numbers. This table is 8 rows × 64 columns. A positive number at a position means "if this pixel is ON, raise my score." A negative number means "if this pixel is ON, lower my score."
+    </p>
+
+    <p>
+      <strong>Table W2 — The trust table.</strong> This is an 8 × 2 grid (8 analysts × 2 digits, since we only trained on 3 and 4). Each cell answers one question: "When analyst H5 fires strongly, should that push the score for digit 4 up or down?" The number answers it.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left;">Analyst</th>
+            <th>Trust for digit 3</th>
+            <th>Trust for digit 4</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="row-head">H1</td><td class="pos">+1.8</td><td class="neg">−1.0</td></tr>
+          <tr><td class="row-head">H2</td><td class="neg">−0.5</td><td class="pos">+1.1</td></tr>
+          <tr><td class="row-head">H3</td><td class="pos">+1.2</td><td class="pos">+1.2</td></tr>
+          <tr><td class="row-head">H4</td><td class="pos">+0.3</td><td class="pos">+0.1</td></tr>
+          <tr><td class="row-head">H5</td><td class="neg">−0.9</td><td class="pos">+1.8</td></tr>
+          <tr><td class="row-head">H6</td><td class="neg">−1.1</td><td class="pos">+2.1</td></tr>
+          <tr><td class="row-head">H7</td><td class="pos">+1.5</td><td class="pos">+0.2</td></tr>
+          <tr><td class="row-head">H8</td><td class="neg">−0.4</td><td class="pos">+1.5</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="font-size:14px; color: var(--text-dim);">
+      (These numbers are made up for illustration. The real ones come from training.)
+    </p>
+
+    <p>
+      Notice how H5, H6, and H8 have <strong>big positive numbers in the digit 4 column</strong> but negative numbers in the digit 3 column. This means: during training, those three analysts kept lighting up strongly whenever a "4" was shown. So the nudging process kept increasing digit 4's trust in them. They became digit 4's loyal witnesses.
+    </p>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════
+       CHAPTER 4 — PREDICTION
+  ══════════════════════════════════════════════ -->
+  <div class="chapter">
+    <div class="chapter-eye">Chapter 4</div>
+    <h2>Prediction — what happens when you show it a new image</h2>
+
+    <p>
+      Now training is over. You write a "4" on paper, scan it, and feed the image to the network. Here is exactly what happens, step by step.
+    </p>
+
+    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 12px;">Step 1 — Each analyst gives a confidence score</h3>
+
+    <p>
+      Each of the 8 analysts takes your 64 pixel values and runs them through their personal checklist. They add up all the checklist numbers for every pixel that is ON, then squash the result into a number between 0 and 1 using a simple formula called <strong>sigmoid</strong>. The result is the analyst's <strong>confidence score</strong>.
+    </p>
+
+    <div class="callout cyan">
+      <div class="callout-title">What the confidence score means</div>
+      A score of 0.92 means "my pattern matches this image strongly." A score of 0.10 means "my pattern barely appears in this image." The analyst has <strong>no idea what digit it is</strong> — it only knows whether its own pattern matched or not.
+    </div>
+
+    <p>Let's say the 8 analysts give these scores for your handwritten "4":</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>H1</th><th>H2</th><th>H3</th><th>H4</th><th>H5</th><th>H6</th><th>H7</th><th>H8</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0.92</td><td>0.40</td><td>0.95</td><td>0.60</td><td>0.88</td><td>0.99</td><td>0.10</td><td>0.66</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 12px;">Step 2 — Use the trust table to calculate a score for each digit</h3>
+
+    <p>
+      Now we use Table W2. For each digit, we multiply every analyst's confidence score by that digit's trust number for that analyst, and add them all up. This gives a <strong>raw score</strong> for each digit.
+    </p>
+
+    <div class="math-block">
+      <span class="line label">── Score for digit 3 ──────────────────────────────────────────────</span>
+      <span class="line">(0.92 × +1.8) + (0.40 × −0.5) + (0.95 × +1.2) + (0.60 × +0.3)</span>
+      <span class="line">+ (0.88 × −0.9) + (0.99 × −1.1) + (0.10 × +1.5) + (0.66 × −0.4)</span>
+      <span class="line">= 1.66 − 0.20 + 1.14 + 0.18 − 0.79 − 1.09 + 0.15 − 0.26</span>
+      <span class="line result">= 0.79</span>
+      <span class="line"> </span>
+      <span class="line label">── Score for digit 4 ──────────────────────────────────────────────</span>
+      <span class="line">(0.92 × −1.0) + (0.40 × +1.1) + (0.95 × +1.2) + (0.60 × +0.1)</span>
+      <span class="line">+ (0.88 × +1.8) + (0.99 × +2.1) + (0.10 × +0.2) + (0.66 × +1.5)</span>
+      <span class="line">= −0.92 + 0.44 + 1.14 + 0.06 + 1.58 + 2.08 + 0.02 + 0.99</span>
+      <span class="line winner">= 5.39  ← higher score wins</span>
+    </div>
+
+    <p>
+      Why did digit 4 win so clearly? Look at which analysts fired strongly: H1 (0.92), H3 (0.95), H5 (0.88), H6 (0.99), H8 (0.66). Now look at the trust table — digit 4 has big positive trust numbers for exactly H5 (+1.8), H6 (+2.1), and H8 (+1.5). Those analysts fired hard AND digit 4 trusted them heavily, so the contributions stacked up. Meanwhile those same analysts actually <em>hurt</em> digit 3's score, because digit 3's trust for them is negative.
+    </p>
+
+    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 12px;">Step 3 — Convert the raw scores into percentages</h3>
+
+    <p>
+      The raw scores (5.39 and 0.79) are hard to interpret on their own. Is 5.39 confident or not? You can't tell. So the network uses a formula called <strong>softmax</strong> to convert them into percentages that always add up to 100%.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Digit</th><th>Raw score</th><th>After softmax</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>3</td><td>0.79</td><td>1.2%</td></tr>
+          <tr><td>4</td><td class="winner" style="color:var(--green); font-weight:700;">5.39</td><td class="winner" style="color:var(--green); font-weight:700;">98.8% ✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      <strong>Digit 4 wins with 98.8% confidence.</strong> That is the prediction.
+    </p>
+
+    <div class="callout green">
+      <div class="callout-title">What softmax tells you about uncertainty</div>
+      When the network is not sure, the percentages show it clearly. If digit 3 scored 2.10 and digit 4 scored 2.30, softmax would give something like 48% vs 52% — the network is basically guessing. The raw scores look close, and the percentages honestly reflect that.
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════
+       CHAPTER 5 — THE FULL PICTURE
+  ══════════════════════════════════════════════ -->
+  <div class="chapter">
+    <div class="chapter-eye">Chapter 5</div>
+    <h2>The complete flow from pixels to prediction</h2>
+
+    <div class="flow">
+      <div class="flow-box">Image<br><small style="color:var(--text-dim);">64 pixels</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box amber-box">Table W1<br><small>8 analysts each score 0–1</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box amber-box">Table W2<br><small>multiply &amp; add → raw score per digit</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box cyan-box">Softmax<br><small>raw scores → percentages</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box green-box">Prediction<br><small>highest % wins</small></div>
+    </div>
+
+    <p>
+      That is the entire prediction process. Nothing more is hidden after this point. There is no extra step where the computer "understands" what a curve is. It is purely: which combination of these specific 8 numbers, multiplied by these specific learned weights, produced the biggest sum?
+    </p>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════
+       SUMMARY
+  ══════════════════════════════════════════════ -->
+  <div class="summary">
+    <h2>What you now know — in one place</h2>
+
+    <div class="summary-row">
+      <span class="tick">✓</span>
+      <p><strong>The network only sees numbers.</strong> An image becomes a list of 64 pixel values (1 = ink, 0 = no ink). That is all.</p>
+    </div>
+    <div class="summary-row">
+      <span class="tick">✓</span>
+      <p><strong>8 analysts, each with a 64-number checklist (Table W1).</strong> These start as random noise and slowly form useful patterns through training.</p>
+    </div>
+    <div class="summary-row">
+      <span class="tick">✓</span>
+      <p><strong>Nobody assigns jobs to analysts.</strong> They figure out their own specialities by themselves, purely because those patterns kept being useful.</p>
+    </div>
+    <div class="summary-row">
+      <span class="tick">✓</span>
+      <p><strong>A confidence score is not a vote.</strong> An analyst scoring 0.99 only means "my pattern is strongly present." It has no idea which digit that is.</p>
+    </div>
+    <div class="summary-row">
+      <span class="tick">✓</span>
+      <p><strong>Table W2 is what makes the actual decision.</strong> It combines all 8 confidence scores into a final score per digit, using trust numbers learned during training.</p>
+    </div>
+    <div class="summary-row">
+      <span class="tick">✓</span>
+      <p><strong>Softmax converts raw scores to percentages.</strong> Whoever gets the highest percentage wins the prediction. Both scores always add up to 100%.</p>
+    </div>
+    <div class="summary-row">
+      <span class="tick">✓</span>
+      <p><strong>Training = show → guess → check → nudge → repeat.</strong> After thousands of nudges, the weight numbers stop being random and become genuinely useful pattern-detectors.</p>
+    </div>
+  </div>
+
+  <footer style="margin-top:48px;">
+    Written in plain English · 64 pixels → 8 hidden neurons (sigmoid) → softmax → prediction
+  </footer>
+
+</div>
+</body>
+</html>

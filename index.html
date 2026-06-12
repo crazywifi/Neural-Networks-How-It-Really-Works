@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weights vs Activations — A Tiny Neural Network You Can Watch Learn</title>
+<style>
+  :root {
+    --bg: #14171c;
+    --panel: #1c2128;
+    --panel-border: #2d333b;
+    --text: #e6e8eb;
+    --text-dim: #9aa3ad;
+    --train-accent: #f0a857;   /* amber: training / weights */
+    --train-accent-dim: #5c4a30;
+    --infer-accent: #5ec8d8;   /* cyan: inference / activations */
+    --infer-accent-dim: #2c4f56;
+    --pos: #f0a857;
+    --neg: #4a6fa5;
+    --good: #6fcf97;
+    --bad: #e07a7a;
+    --font-display: "Spline Sans", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-display);
+    line-height: 1.5;
+    padding: 24px 16px 80px;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  header.hero {
+    padding: 28px 0 36px;
+    border-bottom: 1px solid var(--panel-border);
+    margin-bottom: 36px;
+  }
+
+  h1 {
+    font-size: clamp(28px, 4vw, 44px);
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 16px;
+    max-width: 640px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 24px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .swatch {
+    width: 14px; height: 14px; border-radius: 3px; display: inline-block;
+  }
+  .swatch.train { background: var(--train-accent); }
+  .swatch.infer { background: var(--infer-accent); }
+
+  section {
+    margin-bottom: 56px;
+  }
+
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 6px;
+  }
+  .section-label.train { color: var(--train-accent); }
+  .section-label.infer { color: var(--infer-accent); }
+
+  h2 {
+    font-size: 24px;
+    margin: 4px 0 8px;
+    font-weight: 700;
+  }
+
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 720px;
+    margin-bottom: 24px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  /* ===================== TRAINING SECTION ===================== */
+
+  .train-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 760px) {
+    .train-layout { grid-template-columns: 1fr; }
+  }
+
+  .draw-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .draw-card h3 { margin: 0; font-size: 15px; }
+
+  .grid8 {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--panel-border);
+    border-radius: 6px;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+  }
+  .cell {
+    background: #0e1014;
+    cursor: pointer;
+    transition: background 60ms;
+  }
+  .cell.on { background: var(--train-accent); }
+
+  .digit-picker {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .digit-btn {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    background: #0e1014;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 0;
+    cursor: pointer;
+    transition: all 120ms;
+  }
+  .digit-btn.selected {
+    background: var(--train-accent);
+    color: #1a1306;
+    border-color: var(--train-accent);
+    font-weight: 700;
+  }
+  .digit-btn:hover:not(.selected) { border-color: var(--train-accent); }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    border: 1px solid var(--panel-border);
+    background: #0e1014;
+    color: var(--text);
+    border-radius: 6px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: all 120ms;
+    flex: 1;
+  }
+  .btn:hover { border-color: var(--text-dim); }
+  .btn.primary {
+    background: var(--train-accent);
+    color: #1a1306;
+    border-color: var(--train-accent);
+    font-weight: 700;
+  }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.infer-primary {
+    background: var(--infer-accent);
+    color: #08222a;
+    border-color: var(--infer-accent);
+    font-weight: 700;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .examples-log {
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    max-height: 90px;
+    overflow-y: auto;
+    border-top: 1px solid var(--panel-border);
+    padding-top: 8px;
+  }
+  .examples-log div { padding: 1px 0; }
+
+  /* training visualization right side */
+  .train-viz h3 { margin: 0 0 12px; font-size: 15px; }
+
+  .epoch-readout {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+  .epoch-readout .num { color: var(--train-accent); font-weight: 700; }
+
+  .hidden-templates {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 500px) {
+    .hidden-templates { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  }
+
+  .template-card {
+    background: #0e1014;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 6px;
+    text-align: center;
+  }
+  .template-card .name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .template-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 1px;
+    aspect-ratio: 1;
+    background: #000;
+  }
+  .template-grid .tcell {
+    width: 100%; height: 100%;
+  }
+
+  .scale-note {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .scale-bar {
+    height: 8px;
+    width: 120px;
+    border-radius: 4px;
+    background: linear-gradient(to right, var(--neg), #2a2e35, var(--pos));
+  }
+
+  .w2-table {
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    width: 100%;
+    table-layout: fixed;
+  }
+  .w2-table th, .w2-table td {
+    text-align: center;
+    padding: 4px 2px;
+    border: 1px solid var(--panel-border);
+  }
+  .w2-table th {
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  .w2-table th.row-head {
+    text-align: right;
+    padding-right: 6px;
+    color: var(--text-dim);
+  }
+  .w2-cell {
+    color: #fff;
+    transition: background 300ms, box-shadow 300ms;
+  }
+  .w2-cell.changed {
+    box-shadow: inset 0 0 0 2px #fff;
+  }
+  .w2-cell.winner-col {
+    border-bottom: 2px solid var(--good);
+  }
+  .w2-cell.active-row {
+    box-shadow: inset 0 0 0 2px var(--infer-accent);
+  }
+
+  .w1-table-wrap {
+    overflow-x: auto;
+    margin-top: 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .w1-table {
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .w1-table th, .w1-table td {
+    text-align: center;
+    padding: 3px 4px;
+    border: 1px solid var(--panel-border);
+    color: #fff;
+  }
+  .w1-table th {
+    color: var(--text-dim);
+    font-weight: 400;
+    background: var(--panel);
+    position: sticky;
+    left: 0;
+  }
+  .w1-table th.row-head { left: 0; z-index: 2; }
+
+  .formula-box {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    background: #0e1014;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 4px;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .formula-box .eq { color: var(--infer-accent); }
+  .formula-box .result { color: var(--good); font-weight: 700; }
+  .formula-box .term-on { color: var(--train-accent); }
+
+  /* ===================== INFERENCE SECTION ===================== */
+
+  .infer-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 760px) {
+    .infer-layout { grid-template-columns: 1fr; }
+  }
+
+  .infer-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .hidden-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .hbar-row {
+    display: grid;
+    grid-template-columns: 56px 1fr 110px;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .hbar-track {
+    height: 14px;
+    background: #0e1014;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--panel-border);
+  }
+  .hbar-fill {
+    height: 100%;
+    background: var(--infer-accent);
+    width: 0%;
+    transition: width 500ms ease;
+  }
+  .hbar-mini {
+    width: 28px; height: 28px;
+    background: #000;
+    border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .hbar-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: 100%; height: 100%;
+  }
+
+  .output-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .obar-row {
+    display: grid;
+    grid-template-columns: 28px 1fr 70px;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .obar-track {
+    height: 18px;
+    background: #0e1014;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+    position: relative;
+  }
+  .obar-fill {
+    height: 100%;
+    background: var(--infer-accent-dim);
+    width: 0%;
+    transition: width 500ms ease;
+  }
+  .obar-fill.winner { background: var(--infer-accent); }
+  .obar-row.winner .obar-digit { color: var(--infer-accent); font-weight: 700; }
+
+  .infer-result {
+    margin-top: 6px;
+    padding: 16px;
+    border-radius: 8px;
+    background: #0e1014;
+    border: 1px solid var(--infer-accent-dim);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .infer-result .big {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--infer-accent);
+    display: block;
+    margin: 6px 0;
+  }
+
+  .step-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--infer-accent);
+    margin-bottom: 8px;
+  }
+
+  .status-line {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    min-height: 20px;
+  }
+
+  .calc-detail {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    line-height: 1.6;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    margin-top: 40px;
+    border-top: 1px solid var(--panel-border);
+    padding-top: 24px;
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>Weights vs Activations</h1>
+    <p class="subtitle">
+      A tiny neural network — 64 input pixels, 8 hidden neurons, 10 output digits —
+      that you train and run yourself. Watch the <strong>weights</strong> (permanent,
+      learned during training) form patterns, then watch <strong>activations</strong>
+      (temporary, computed per image) flow through those patterns to make a prediction.
+    </p>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch train"></span> Training — shapes the weight tables</div>
+      <div class="legend-item"><span class="swatch infer"></span> Inference — uses the weights on a new image</div>
+    </div>
+  </header>
+
+  <!-- ============ TRAINING SECTION ============ -->
+  <section>
+    <div class="section-label train">Part 1 — Training</div>
+    <h2>Teach the network what each digit looks like</h2>
+    <p class="section-desc">
+      Think of this network as <strong>8 "analysts" (hidden neurons H1-H8)</strong>, sitting between
+      your 64-pixel drawing and the final answer (digit 0-9). Each analyst keeps a private
+      <strong>checklist of 64 numbers</strong> — one number per pixel position. Nobody writes these
+      checklists by hand. They start as random noise, and every time you click <strong>Train</strong>,
+      each analyst's checklist gets nudged a tiny bit, based on whether the network's guess was right
+      or wrong on your examples. After enough nudges, each analyst ends up "caring about" some rough
+      pattern (e.g. "ink in the center", "no ink at the bottom") — purely because that pattern kept
+      being useful for telling your digits apart.
+    </p>
+    <p class="section-desc">
+      Below you'll see <strong>two tables that the network is building</strong>:
+    </p>
+    <ul class="section-desc" style="margin-top:-8px;">
+      <li><strong>Table W1</strong> — the 8 analysts' checklists (64 numbers each). Shown as little
+      colored pictures, and also as raw numbers if you click "Show W1 as numbers".</li>
+      <li><strong>Table W2</strong> — the "trust table": for each digit 0-9, how much the final decision
+      should trust each analyst's opinion.</li>
+    </ul>
+    <p class="section-desc">
+      Draw a digit on the 8×8 grid, tell the network which digit it is, add it to the training set,
+      then click <strong>Train</strong>. Watch both tables shift a little after every click.
+    </p>
+    <div class="panel train-layout">
+      <div class="draw-card">
+        <h3>1. Draw a digit (click / drag)</h3>
+        <div class="grid8" id="drawGrid"></div>
+        <h3>2. Which digit is it?</h3>
+        <div class="digit-picker" id="digitPicker"></div>
+        <div class="btn-row">
+          <button class="btn" id="clearBtn">Clear grid</button>
+          <button class="btn primary" id="addBtn">Add example</button>
+        </div>
+        <div class="examples-log" id="examplesLog"></div>
+        <div class="btn-row">
+          <button class="btn primary" id="trainBtn" disabled>Train (1 epoch)</button>
+          <button class="btn" id="resetBtn">Reset weights</button>
+        </div>
+      </div>
+
+      <div class="train-viz">
+        <h3>Table W1 — each analyst's 64-number checklist (shown as a picture)</h3>
+        <p class="calc-detail" style="margin-bottom:10px;">
+          Each small grid below belongs to one analyst (H1-H8) and has 64 numbers — one per pixel
+          position, drawn in the same 8×8 layout as your drawing. <span style="color:var(--train-accent)">Amber</span>
+          = a positive number ("if this pixel is ON, raise my score"). <span style="color:var(--neg)">Blue</span>
+          = a negative number ("if this pixel is ON, lower my score"). Gray ≈ doesn't care.
+          These start random and slowly form patterns as you train.
+        </p>
+        <div class="epoch-readout">Epoch: <span class="num" id="epochCount">0</span> · Training examples: <span class="num" id="exampleCount">0</span></div>
+        <div class="hidden-templates" id="hiddenTemplates"></div>
+        <div class="scale-note">
+          <span class="scale-bar"></span>
+          <span>negative weight ←→ positive weight (gray ≈ 0) · white outline = weight changed this round</span>
+        </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn" id="toggleW1Table">Show W1 as numbers (the actual checklist values)</button>
+        </div>
+        <div id="w1TableWrap" style="display:none;"></div>
+
+        <h3 style="margin-top:20px;">Table W2 — the "trust table" that makes the final decision</h3>
+        <p class="calc-detail" style="margin-bottom:10px;">
+          8 rows (analysts H1-H8) × 10 columns (digits 0-9). Cell value = "when this analyst's
+          checklist score is high, how much should that push THIS digit's final score up or down?"
+          <span style="color:var(--train-accent)">Amber</span> = "I trust this analyst for this digit"
+          (positive). <span style="color:var(--neg)">Blue</span> = "if this analyst is loud, that's
+          evidence AGAINST this digit" (negative). Nobody fills this table in by hand either — it
+          starts random and gets nudged after every training example, in whichever direction would
+          have made that example's guess less wrong.
+        </p>
+        <div id="w2Table"></div>
+        <div class="scale-note">
+          <span class="scale-bar"></span>
+          <span>negative vote ←→ positive vote · pulsing/highlighted cell = changed this round</span>
+        </div>
+
+        <div id="trainLog" class="calc-detail" style="margin-top:10px;"></div>
+        <p class="status-line" id="trainStatus">Add at least 2 different digits, then click Train. Each click runs one pass over all your examples and nudges every weight slightly.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INFERENCE SECTION ============ -->
+  <section>
+    <div class="section-label infer">Part 2 — Inference</div>
+    <h2>Show it a digit and watch it "think"</h2>
+    <p class="section-desc">
+      Now the checklists (W1) and trust table (W2) are fixed — nothing changes from here.
+      Draw a new digit below and click <strong>Run inference</strong>. You'll see, with the actual
+      numbers:
+    </p>
+    <ul class="section-desc" style="margin-top:-8px;">
+      <li><strong>Step 1:</strong> each of the 8 analysts compares your drawing pixel-by-pixel against
+      its own checklist and reports a confidence score from 0 to 1 — "how much does this look like
+      MY pattern?" (this says nothing about which digit yet).</li>
+      <li><strong>Step 2:</strong> for each digit 0-9, the trust table (W2) is used to combine all 8
+      confidence scores into one final score for that digit.</li>
+      <li><strong>Result:</strong> the digit with the highest score wins, converted to a % via softmax.</li>
+    </ul>
+    <p class="section-desc">
+      Every formula box below shows the <em>exact numbers</em> the network used — nothing is hidden.
+    </p>
+    <div class="panel" style="margin-bottom:20px;">
+      <h3 style="margin:0 0 12px;">The network, as a diagram</h3>
+      <p class="section-desc" style="margin-bottom:14px;">
+        This is the same network, drawn as a graph. <span style="color:var(--infer-accent)">Cyan</span> = activations
+        (computed fresh for this image). <span style="color:var(--train-accent)">Amber/blue</span> connection lines = weights
+        (fixed, learned during training — amber means positive, blue means negative, thicker = stronger).
+        Click "Run inference" below to animate the signal flowing left to right.
+      </p>
+      <svg id="netDiagram" viewBox="0 0 760 380" style="width:100%; height:auto; display:block;"></svg>
+      <div class="status-line" id="narration" style="margin-top:10px; min-height:40px;"></div>
+    </div>
+    <div class="panel infer-layout">
+      <div class="draw-card">
+        <h3>Draw a digit to test</h3>
+        <div class="grid8" id="testGrid"></div>
+        <div class="btn-row">
+          <button class="btn" id="clearTestBtn">Clear grid</button>
+          <button class="btn infer-primary" id="inferBtn">Run inference</button>
+        </div>
+        <p class="status-line" id="inferIntro">Tip: draw something close to a digit you trained on, then try one you didn't — see how confidence changes.</p>
+      </div>
+
+      <div class="infer-flow">
+        <div>
+          <div class="step-label">Step 1 — Hidden layer: how strongly does the image match each learned template?</div>
+          <div class="hidden-bars" id="hiddenBars"></div>
+          <div class="calc-detail" id="hiddenCalcDetail"></div>
+        </div>
+        <div>
+          <div class="step-label">Step 2 — Output layer: combine activations × output weights → score per digit</div>
+          <div class="output-bars" id="outputBars"></div>
+          <div class="calc-detail" id="outputCalcDetail"></div>
+        </div>
+        <div class="infer-result" id="inferResult">
+          Run inference to see the prediction.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    64 inputs → 8 hidden neurons (sigmoid) → 10 outputs (softmax) · trained live in your browser with plain gradient descent
+  </footer>
+
+</div>
+
+<script>
+const SIZE = 8;
+const N_INPUT = SIZE * SIZE;
+const N_HIDDEN = 8;
+const N_OUTPUT = 10;
+
+// ---------- network state ----------
+let W1 = []; // N_HIDDEN x N_INPUT
+let b1 = []; // N_HIDDEN
+let W2 = []; // N_OUTPUT x N_HIDDEN
+let b2 = []; // N_OUTPUT
+let epoch = 0;
+let trainSet = []; // {pixels: [64], label: 0-9}
+
+function randInit() {
+  W1 = Array.from({length:N_HIDDEN}, () => Array.from({length:N_INPUT}, () => (Math.random()-0.5)*0.6));
+  b1 = Array.from({length:N_HIDDEN}, () => 0);
+  W2 = Array.from({length:N_OUTPUT}, () => Array.from({length:N_HIDDEN}, () => (Math.random()-0.5)*0.6));
+  b2 = Array.from({length:N_OUTPUT}, () => 0);
+  epoch = 0;
+}
+randInit();
+
+function sigmoid(x){ return 1/(1+Math.exp(-x)); }
+
+function forward(pixels){
+  const hidden = [];
+  for(let h=0; h<N_HIDDEN; h++){
+    let s = b1[h];
+    for(let i=0; i<N_INPUT; i++) s += W1[h][i]*pixels[i];
+    hidden.push(sigmoid(s));
+  }
+  const outRaw = [];
+  for(let o=0; o<N_OUTPUT; o++){
+    let s = b2[o];
+    for(let h=0; h<N_HIDDEN; h++) s += W2[o][h]*hidden[h];
+    outRaw.push(s);
+  }
+  // softmax
+  const max = Math.max(...outRaw);
+  const exps = outRaw.map(v => Math.exp(v-max));
+  const sum = exps.reduce((a,b)=>a+b,0);
+  const probs = exps.map(v=>v/sum);
+  return {hidden, outRaw, probs};
+}
+
+let lastTrainLog = []; // {label, predictedBefore, correctBefore, predictedAfter}
+
+function trainOneEpoch(){
+  if(trainSet.length === 0) return;
+  const lr = 0.6;
+  lastTrainLog = [];
+  // shuffle
+  const order = trainSet.map((_,i)=>i);
+  for(let i=order.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [order[i],order[j]]=[order[j],order[i]];
+  }
+  for(const idx of order){
+    const ex = trainSet[idx];
+    const {hidden, probs} = forward(ex.pixels);
+    const predictedBefore = probs.indexOf(Math.max(...probs));
+    const confBefore = Math.max(...probs);
+    // target one-hot
+    const target = Array.from({length:N_OUTPUT}, (_,k)=> k===ex.label?1:0);
+    // dL/dOutRaw = probs - target  (softmax + cross-entropy)
+    const dOut = probs.map((p,k)=>p-target[k]);
+    // gradients for W2,b2
+    const dHidden = Array.from({length:N_HIDDEN}, ()=>0);
+    for(let o=0;o<N_OUTPUT;o++){
+      for(let h=0;h<N_HIDDEN;h++){
+        dHidden[h] += dOut[o]*W2[o][h];
+        W2[o][h] -= lr * dOut[o]*hidden[h];
+      }
+      b2[o] -= lr * dOut[o];
+    }
+    // backprop through sigmoid
+    for(let h=0;h<N_HIDDEN;h++){
+      const dAct = dHidden[h]*hidden[h]*(1-hidden[h]);
+      for(let i=0;i<N_INPUT;i++){
+        W1[h][i] -= lr * dAct * ex.pixels[i];
+      }
+      b1[h] -= lr * dAct;
+    }
+    const {probs: probsAfter} = forward(ex.pixels);
+    const predictedAfter = probsAfter.indexOf(Math.max(...probsAfter));
+    const confAfter = probsAfter[ex.label];
+    lastTrainLog.push({
+      label: ex.label,
+      predictedBefore, confBefore,
+      predictedAfter, confAfter
+    });
+  }
+  epoch++;
+}
+
+// ---------- UI: drawing grids ----------
+function buildGrid(container, pixels, onChange){
+  container.innerHTML = '';
+  let drawing = false;
+  let setTo = 1;
+  for(let i=0;i<N_INPUT;i++){
+    const cell = document.createElement('div');
+    cell.className = 'cell' + (pixels[i] ? ' on' : '');
+    cell.dataset.idx = i;
+    const paint = (forceVal) => {
+      const val = forceVal !== undefined ? forceVal : setTo;
+      pixels[i] = val;
+      cell.classList.toggle('on', !!val);
+      if(onChange) onChange();
+    };
+    cell.addEventListener('mousedown', (e) => {
+      drawing = true;
+      setTo = pixels[i] ? 0 : 1;
+      paint();
+      e.preventDefault();
+    });
+    cell.addEventListener('mouseenter', () => { if(drawing) paint(); });
+    cell.addEventListener('mouseup', () => drawing = false);
+    cell.addEventListener('touchstart', (e) => {
+      drawing = true;
+      setTo = pixels[i] ? 0 : 1;
+      paint();
+      e.preventDefault();
+    }, {passive:false});
+    cell.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      if(el && el.classList.contains('cell') && el.parentElement === container){
+        const idx = +el.dataset.idx;
+        pixels[idx] = setTo;
+        el.classList.toggle('on', !!setTo);
+        if(onChange) onChange();
+      }
+      e.preventDefault();
+    }, {passive:false});
+    container.appendChild(cell);
+  }
+  document.addEventListener('mouseup', () => drawing = false);
+}
+
+// draw grid state
+let drawPixels = new Array(N_INPUT).fill(0);
+let testPixels = new Array(N_INPUT).fill(0);
+
+const drawGridEl = document.getElementById('drawGrid');
+const testGridEl = document.getElementById('testGrid');
+
+buildGrid(drawGridEl, drawPixels);
+buildGrid(testGridEl, testPixels);
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  drawPixels = new Array(N_INPUT).fill(0);
+  buildGrid(drawGridEl, drawPixels);
+});
+document.getElementById('clearTestBtn').addEventListener('click', () => {
+  testPixels = new Array(N_INPUT).fill(0);
+  buildGrid(testGridEl, testPixels);
+  document.getElementById('hiddenBars').innerHTML = '';
+  document.getElementById('outputBars').innerHTML = '';
+  document.getElementById('hiddenCalcDetail').textContent = '';
+  document.getElementById('inferResult').textContent = 'Run inference to see the prediction.';
+});
+
+// digit picker
+let selectedDigit = null;
+const digitPicker = document.getElementById('digitPicker');
+for(let d=0; d<10; d++){
+  const btn = document.createElement('button');
+  btn.className = 'digit-btn';
+  btn.textContent = d;
+  btn.addEventListener('click', () => {
+    selectedDigit = d;
+    document.querySelectorAll('.digit-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+  digitPicker.appendChild(btn);
+}
+
+// examples log
+const examplesLog = document.getElementById('examplesLog');
+const exampleCountEl = document.getElementById('exampleCount');
+const epochCountEl = document.getElementById('epochCount');
+const trainBtn = document.getElementById('trainBtn');
+const trainStatus = document.getElementById('trainStatus');
+
+document.getElementById('addBtn').addEventListener('click', () => {
+  if(selectedDigit === null){
+    trainStatus.textContent = 'Pick which digit (0-9) you drew first.';
+    return;
+  }
+  if(drawPixels.every(p=>p===0)){
+    trainStatus.textContent = 'The grid is empty — draw something first.';
+    return;
+  }
+  trainSet.push({pixels: drawPixels.slice(), label: selectedDigit});
+  const entry = document.createElement('div');
+  entry.textContent = `Example ${trainSet.length}: digit ${selectedDigit} (${drawPixels.reduce((a,b)=>a+b,0)} pixels on)`;
+  examplesLog.appendChild(entry);
+  examplesLog.scrollTop = examplesLog.scrollHeight;
+  exampleCountEl.textContent = trainSet.length;
+  drawPixels = new Array(N_INPUT).fill(0);
+  buildGrid(drawGridEl, drawPixels);
+  const distinctDigits = new Set(trainSet.map(e=>e.label)).size;
+  if(distinctDigits >= 2){
+    trainBtn.disabled = false;
+    trainStatus.textContent = `Ready. You have ${trainSet.length} example(s) across ${distinctDigits} digit(s). Click Train.`;
+  } else {
+    trainStatus.textContent = `Add at least one more example of a different digit (you only have digit ${[...new Set(trainSet.map(e=>e.label))][0]} so far).`;
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  randInit();
+  epochCountEl.textContent = epoch;
+  lastTrainLog = [];
+  renderTemplates();
+  renderW2Table();
+  if(document.getElementById('w1TableWrap').style.display !== 'none') renderW1Table();
+  document.getElementById('trainLog').textContent = '';
+  refreshW1Lines();
+  refreshW2Lines();
+  trainStatus.textContent = 'Weights reset to random noise. Train again to reshape them.';
+});
+
+trainBtn.addEventListener('click', () => {
+  const W1Before = W1.map(row => row.slice());
+  const W2Before = W2.map(row => row.slice());
+  for(let i=0;i<5;i++) trainOneEpoch(); // a few passes per click for visible progress
+  epochCountEl.textContent = epoch;
+  renderTemplates(W1Before);
+  renderW2Table(W2Before);
+  if(document.getElementById('w1TableWrap').style.display !== 'none') renderW1Table();
+  refreshW1Lines();
+  refreshW2Lines();
+  renderTrainLog();
+  trainStatus.textContent = `Ran 5 training passes. Total epochs: ${epoch}. The highlighted cells below show which weights just shifted, and by how much.`;
+});
+
+// ---------- hidden neuron templates ----------
+const hiddenTemplatesEl = document.getElementById('hiddenTemplates');
+
+function weightToColor(w){
+  // map weight to color: negative -> blue, positive -> amber, 0 -> gray
+  const clamped = Math.max(-1.5, Math.min(1.5, w));
+  const t = (clamped + 1.5) / 3; // 0..1
+  // interpolate neg (74,111,165) -> mid (42,46,53) -> pos (240,168,87)
+  let r,g,b;
+  if(t < 0.5){
+    const k = t/0.5;
+    r = Math.round(74 + (42-74)*k);
+    g = Math.round(111 + (46-111)*k);
+    b = Math.round(165 + (53-165)*k);
+  } else {
+    const k = (t-0.5)/0.5;
+    r = Math.round(42 + (240-42)*k);
+    g = Math.round(46 + (168-46)*k);
+    b = Math.round(53 + (87-53)*k);
+  }
+  return `rgb(${r},${g},${b})`;
+}
+
+function renderTemplates(W1Before){
+  hiddenTemplatesEl.innerHTML = '';
+  for(let h=0; h<N_HIDDEN; h++){
+    const card = document.createElement('div');
+    card.className = 'template-card';
+    const name = document.createElement('div');
+    name.className = 'name';
+    let totalDelta = 0;
+    if(W1Before){
+      for(let i=0;i<N_INPUT;i++) totalDelta += Math.abs(W1[h][i] - W1Before[h][i]);
+    }
+    name.textContent = W1Before ? `H${h+1}  (Δ ${totalDelta.toFixed(2)})` : `H${h+1}`;
+    card.appendChild(name);
+    const grid = document.createElement('div');
+    grid.className = 'template-grid';
+    for(let i=0;i<N_INPUT;i++){
+      const c = document.createElement('div');
+      c.className = 'tcell';
+      c.style.background = weightToColor(W1[h][i]);
+      if(W1Before){
+        const d = Math.abs(W1[h][i] - W1Before[h][i]);
+        if(d > 0.05){
+          c.style.outline = `1px solid rgba(255,255,255,${Math.min(0.9, d)})`;
+          c.style.outlineOffset = '-1px';
+        }
+      }
+      grid.appendChild(c);
+    }
+    card.appendChild(grid);
+    hiddenTemplatesEl.appendChild(card);
+  }
+}
+function renderW2Table(W2Before){
+  const container = document.getElementById('w2Table');
+  let html = '<table class="w2-table"><tr><th class="row-head">Neuron \\ Digit</th>';
+  for(let d=0;d<N_OUTPUT;d++) html += `<th>${d}</th>`;
+  html += '</tr>';
+  for(let h=0;h<N_HIDDEN;h++){
+    html += `<tr><th class="row-head">H${h+1}</th>`;
+    for(let d=0;d<N_OUTPUT;d++){
+      const w = W2[d][h];
+      const changed = W2Before && Math.abs(w - W2Before[d][h]) > 0.03;
+      html += `<td class="w2-cell${changed?' changed':''}" style="background:${weightToColor(w)}">${w.toFixed(2)}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+  container.innerHTML = html;
+}
+renderTemplates();
+renderW2Table();
+renderW1Table();
+
+function renderW1Table(){
+  const wrap = document.getElementById('w1TableWrap');
+  let html = '<div class="w1-table-wrap"><table class="w1-table"><tr><th class="row-head">Analyst \\ Pixel #</th>';
+  for(let i=0;i<N_INPUT;i++) html += `<th>${i}</th>`;
+  html += '</tr>';
+  for(let h=0;h<N_HIDDEN;h++){
+    html += `<tr><th class="row-head">H${h+1}</th>`;
+    for(let i=0;i<N_INPUT;i++){
+      html += `<td style="background:${weightToColor(W1[h][i])}">${W1[h][i].toFixed(2)}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table></div>';
+  wrap.innerHTML = html;
+}
+
+document.getElementById('toggleW1Table').addEventListener('click', (e) => {
+  const wrap = document.getElementById('w1TableWrap');
+  const showing = wrap.style.display !== 'none';
+  if(showing){
+    wrap.style.display = 'none';
+    e.target.textContent = 'Show W1 as numbers (the actual checklist values)';
+  } else {
+    renderW1Table();
+    wrap.style.display = 'block';
+    e.target.textContent = 'Hide W1 numbers';
+  }
+});
+
+function renderTrainLog(){
+  const logEl = document.getElementById('trainLog');
+  if(!lastTrainLog.length){ logEl.textContent = ''; return; }
+  const lines = lastTrainLog.map(l => {
+    const afterPct = (l.confAfter*100).toFixed(1);
+    return `Example labeled ${l.label}: before this pass, model guessed ${l.predictedBefore===l.label ? `${l.predictedBefore} (correct)` : `${l.predictedBefore} (wrong, should be ${l.label})`}. After adjusting weights based on this one example, confidence in "${l.label}" is now ${afterPct}%.`;
+  });
+  logEl.innerHTML = `<strong>What happened in the last pass (one line per training example, in the order processed):</strong><br>` + lines.join('<br>');
+}
+
+// ---------- SVG network diagram ----------
+const svgNS = "http://www.w3.org/2000/svg";
+const netSvg = document.getElementById('netDiagram');
+const narrationEl = document.getElementById('narration');
+
+// layout positions
+const W = 760, H = 380;
+const inputX = 70, inputY = H/2;
+const hiddenX = 380;
+const outputX = 690;
+const hiddenYs = Array.from({length:N_HIDDEN}, (_,i) => 30 + i*(H-60)/(N_HIDDEN-1));
+const outputYs = Array.from({length:N_OUTPUT}, (_,i) => 12 + i*(H-24)/(N_OUTPUT-1));
+
+function el(tag, attrs){
+  const e = document.createElementNS(svgNS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+function weightLineColor(w){
+  return w >= 0 ? 'var(--train-accent)' : 'var(--neg)';
+}
+
+let svgRefs = { hiddenNodes: [], outputBars: [], w1Lines: [], w2Lines: [], inputCells: [] };
+
+function buildDiagram(){
+  netSvg.innerHTML = '';
+  svgRefs = { hiddenNodes: [], outputBars: [], w1Lines: [], w2Lines: [], inputCells: [] };
+
+  // --- input glyph (8x8 mini grid) ---
+  const inputGroup = el('g', {});
+  const cellSize = 7;
+  const gridW = cellSize * SIZE;
+  const gx0 = inputX - gridW/2, gy0 = inputY - gridW/2;
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const idx = r*SIZE+c;
+      const rect = el('rect', {
+        x: gx0 + c*cellSize, y: gy0 + r*cellSize,
+        width: cellSize-1, height: cellSize-1,
+        fill: '#0e1014', stroke: 'none', rx: 1
+      });
+      svgRefs.inputCells.push(rect);
+      inputGroup.appendChild(rect);
+    }
+  }
+  inputGroup.appendChild(el('text', {x:inputX, y: gy0 - 14, 'text-anchor':'middle', fill:'var(--text-dim)', 'font-size':'12', 'font-family':'var(--font-mono)'})).textContent = 'INPUT (64 px)';
+  netSvg.appendChild(inputGroup);
+
+  // --- W1 connections: input center to each hidden neuron, weight = avg of that neuron's weights ---
+  const w1Group = el('g', {opacity:'0.5'});
+  for(let h=0; h<N_HIDDEN; h++){
+    const line = el('line', {
+      x1: inputX + gridW/2, y1: inputY,
+      x2: hiddenX - 24, y2: hiddenYs[h],
+      stroke: '#3a3f47', 'stroke-width': '1.5'
+    });
+    svgRefs.w1Lines.push(line);
+    w1Group.appendChild(line);
+  }
+  netSvg.appendChild(w1Group);
+
+  // --- hidden neurons ---
+  const hiddenGroup = el('g', {});
+  for(let h=0; h<N_HIDDEN; h++){
+    const g = el('g', {});
+    const circle = el('circle', {
+      cx: hiddenX, cy: hiddenYs[h], r: 20,
+      fill: '#0e1014', stroke: 'var(--panel-border)', 'stroke-width':'2'
+    });
+    const label = el('text', {
+      x: hiddenX, y: hiddenYs[h]+4, 'text-anchor':'middle',
+      fill: 'var(--text)', 'font-size':'12', 'font-family':'var(--font-mono)', 'font-weight':'700'
+    });
+    label.textContent = '—';
+    g.appendChild(circle);
+    g.appendChild(label);
+    svgRefs.hiddenNodes.push({circle, label});
+    hiddenGroup.appendChild(g);
+  }
+  hiddenGroup.appendChild(Object.assign(el('text', {x:hiddenX, y:16, 'text-anchor':'middle', fill:'var(--text-dim)', 'font-size':'12', 'font-family':'var(--font-mono)'}), {textContent:'HIDDEN'}));
+  netSvg.appendChild(hiddenGroup);
+
+  // --- W2 connections: each hidden neuron to each output digit ---
+  const w2Group = el('g', {opacity:'0.35'});
+  for(let h=0; h<N_HIDDEN; h++){
+    for(let o=0; o<N_OUTPUT; o++){
+      const line = el('line', {
+        x1: hiddenX+20, y1: hiddenYs[h],
+        x2: outputX-50, y2: outputYs[o],
+        stroke: weightLineColor(W2[o][h]),
+        'stroke-width': Math.max(0.5, Math.min(4, Math.abs(W2[o][h])*2))
+      });
+      svgRefs.w2Lines.push({line, h, o});
+      w2Group.appendChild(line);
+    }
+  }
+  netSvg.appendChild(w2Group);
+
+  // --- output bars ---
+  const outGroup = el('g', {});
+  for(let o=0; o<N_OUTPUT; o++){
+    const y = outputYs[o];
+    const label = el('text', {x: outputX-50, y: y+4, 'text-anchor':'end', fill:'var(--text-dim)', 'font-size':'12', 'font-family':'var(--font-mono)'});
+    label.textContent = o;
+    const track = el('rect', {x: outputX-40, y: y-6, width: 60, height: 12, fill:'#0e1014', stroke:'var(--panel-border)', rx:2});
+    const fill = el('rect', {x: outputX-40, y: y-6, width: 0, height: 12, fill:'var(--infer-accent-dim)', rx:2});
+    outGroup.appendChild(label);
+    outGroup.appendChild(track);
+    outGroup.appendChild(fill);
+    svgRefs.outputBars.push({fill, label, y});
+  }
+  outGroup.appendChild(Object.assign(el('text', {x:outputX-10, y:16, 'text-anchor':'middle', fill:'var(--text-dim)', 'font-size':'12', 'font-family':'var(--font-mono)'}), {textContent:'OUTPUT'}));
+  netSvg.appendChild(outGroup);
+}
+buildDiagram();
+
+function refreshInputGlyph(pixels){
+  svgRefs.inputCells.forEach((rect, i) => {
+    rect.setAttribute('fill', pixels[i] ? 'var(--infer-accent)' : '#0e1014');
+  });
+}
+
+function refreshW1Lines(){
+  svgRefs.w1Lines.forEach((line, h) => {
+    const avgW = W1[h].reduce((a,b)=>a+b,0) / N_INPUT;
+    line.setAttribute('stroke', weightLineColor(avgW));
+    line.setAttribute('stroke-width', Math.max(1, Math.min(5, Math.abs(avgW)*8)));
+  });
+}
+
+function refreshW2Lines(){
+  svgRefs.w2Lines.forEach(({line, h, o}) => {
+    line.setAttribute('stroke', weightLineColor(W2[o][h]));
+    line.setAttribute('stroke-width', Math.max(0.5, Math.min(4, Math.abs(W2[o][h])*2)));
+  });
+}
+
+// auto-label hidden neurons based on what their weight pattern actually emphasizes
+function describeNeuron(h){
+  if(epoch === 0) return 'random';
+  const w = W1[h];
+  // split 8x8 into quadrants and find dominant region
+  let regions = {top:0, bottom:0, left:0, right:0, center:0};
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const v = w[r*SIZE+c];
+      if(r < SIZE/2) regions.top += v; else regions.bottom += v;
+      if(c < SIZE/2) regions.left += v; else regions.right += v;
+      if(r>=2 && r<6 && c>=2 && c<6) regions.center += v;
+    }
+  }
+  const entries = Object.entries(regions);
+  entries.sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  const top = entries[0];
+  const sign = top[1] >= 0 ? '+' : '−';
+  return `${top[0]}${sign}`;
+}
+
+// ---------- inference visualization ----------
+const hiddenBarsEl = document.getElementById('hiddenBars');
+const outputBarsEl = document.getElementById('outputBars');
+const hiddenCalcDetailEl = document.getElementById('hiddenCalcDetail');
+const inferResultEl = document.getElementById('inferResult');
+const inferIntroEl = document.getElementById('inferIntro');
+
+document.getElementById('inferBtn').addEventListener('click', () => {
+  if(epoch === 0){
+    inferIntroEl.textContent = "The network hasn't been trained yet — its weights are still random, so predictions will be meaningless. Train it in Part 1 first.";
+  }
+  if(testPixels.every(p=>p===0)){
+    inferIntroEl.textContent = 'Draw something in the grid first.';
+    return;
+  }
+  const {hidden, probs, outRaw} = forward(testPixels);
+  const maxProb = Math.max(...probs);
+  const predicted = probs.indexOf(maxProb);
+
+  // clear any previous winner-column highlight on the W2 table
+  document.querySelectorAll('#w2Table .w2-cell.winner-col, #w2Table .w2-cell.active-row')
+    .forEach(c => c.classList.remove('winner-col','active-row'));
+
+  // reset diagram visuals
+  refreshInputGlyph(testPixels);
+  svgRefs.hiddenNodes.forEach(({circle,label}) => {
+    circle.setAttribute('stroke', 'var(--panel-border)');
+    circle.style.filter = 'none';
+    label.textContent = '—';
+  });
+  svgRefs.outputBars.forEach(({fill,label}) => {
+    fill.setAttribute('width', 0);
+    fill.setAttribute('fill', 'var(--infer-accent-dim)');
+    label.setAttribute('fill', 'var(--text-dim)');
+  });
+
+  // build the supporting bar UI (no animation classes yet, just structure)
+  hiddenBarsEl.innerHTML = '';
+  const hiddenRowFills = [];
+  const hiddenFormulas = [];
+  hidden.forEach((act, h) => {
+    const row = document.createElement('div');
+    row.className = 'hbar-row';
+    const mini = document.createElement('div');
+    mini.className = 'hbar-mini';
+    const miniGrid = document.createElement('div');
+    miniGrid.className = 'hbar-mini-grid';
+    for(let i=0;i<N_INPUT;i++){
+      const c = document.createElement('div');
+      c.style.background = weightToColor(W1[h][i]);
+      miniGrid.appendChild(c);
+    }
+    mini.appendChild(miniGrid);
+    const track = document.createElement('div');
+    track.className = 'hbar-track';
+    const fill = document.createElement('div');
+    fill.className = 'hbar-fill';
+    fill.style.width = '0%';
+    track.appendChild(fill);
+    const label = document.createElement('div');
+    label.textContent = `H${h+1} (${describeNeuron(h)}): —`;
+    row.appendChild(mini);
+    row.appendChild(track);
+    row.appendChild(label);
+    hiddenBarsEl.appendChild(row);
+    hiddenRowFills.push({fill, label, act, h});
+
+    // build the actual-numbers formula for this analyst, only listing pixels that are ON
+    // (since pixel=0 means that weight contributes 0 to the sum)
+    let sum = b1[h];
+    const terms = [];
+    for(let i=0;i<N_INPUT;i++){
+      if(testPixels[i]){
+        sum += W1[h][i];
+        terms.push(`<span class="term-on">${W1[h][i]>=0?'+':''}${W1[h][i].toFixed(2)}</span>`);
+      }
+    }
+    const onCount = terms.length;
+    const termsStr = terms.length ? terms.join(' ') : '(no pixels on)';
+    hiddenFormulas.push(
+      `<strong>H${h+1}</strong>: add up the checklist numbers only for the ${onCount} pixel(s) you turned ON, plus a bias of ${b1[h].toFixed(2)}.<br>`+
+      `&nbsp;&nbsp;sum = ${b1[h].toFixed(2)} ${termsStr} = <span class="eq">${sum.toFixed(2)}</span><br>`+
+      `&nbsp;&nbsp;activation = sigmoid(${sum.toFixed(2)}) = <span class="result">${act.toFixed(3)}</span>`
+    );
+  });
+  hiddenCalcDetailEl.innerHTML = '';
+
+  outputBarsEl.innerHTML = '';
+  const outputRowFills = [];
+  probs.forEach((p, d) => {
+    const row = document.createElement('div');
+    row.className = 'obar-row';
+    const digitEl = document.createElement('div');
+    digitEl.className = 'obar-digit';
+    digitEl.textContent = d;
+    const track = document.createElement('div');
+    track.className = 'obar-track';
+    const fill = document.createElement('div');
+    fill.className = 'obar-fill';
+    fill.style.width = '0%';
+    track.appendChild(fill);
+    const pctEl = document.createElement('div');
+    pctEl.textContent = '—';
+    row.appendChild(digitEl);
+    row.appendChild(track);
+    row.appendChild(pctEl);
+    outputBarsEl.appendChild(row);
+    outputRowFills.push({row, fill, pctEl, p, d});
+  });
+
+  inferResultEl.innerHTML = 'Computing…';
+
+  // ---------- animation sequence ----------
+  let t = 0;
+  const STEP = 900;
+
+  narrationEl.textContent = `Step 0 — Your drawing becomes 64 numbers (1 = pixel on, 0 = pixel off). This is the only information the network receives.`;
+
+  // Step 1: light up W1 connections + compute each hidden activation one by one
+  hidden.forEach((act, h) => {
+    t += STEP;
+    setTimeout(() => {
+      const {circle, label} = svgRefs.hiddenNodes[h];
+      const intensity = Math.round(act*255);
+      circle.setAttribute('fill', `rgba(94,200,216,${act.toFixed(2)})`);
+      circle.setAttribute('stroke', 'var(--infer-accent)');
+      circle.style.filter = act > 0.6 ? 'drop-shadow(0 0 6px var(--infer-accent))' : 'none';
+      label.textContent = act.toFixed(2);
+      svgRefs.w1Lines[h].setAttribute('opacity', '0.9');
+      svgRefs.w1Lines[h].setAttribute('stroke', 'var(--infer-accent)');
+
+      hiddenRowFills[h].fill.style.width = (act*100).toFixed(1)+'%';
+      hiddenRowFills[h].label.textContent = `H${h+1} (${describeNeuron(h)}): ${act.toFixed(3)}`;
+
+      narrationEl.textContent = `Step 1.${h+1} — Analyst H${h+1}: its checklist of 64 numbers is added up (only for pixels you turned ON), then squashed to a 0-1 score. Result: ${act.toFixed(3)}. ${act > 0.6 ? "Strong match — this analyst's pattern overlaps a lot with your drawing." : act < 0.3 ? "Weak match — this analyst's pattern barely overlaps with your drawing." : 'Partial match.'}`;
+
+      const fbox = document.createElement('div');
+      fbox.className = 'formula-box';
+      fbox.innerHTML = hiddenFormulas[h];
+      hiddenCalcDetailEl.appendChild(fbox);
+    }, t);
+  });
+
+  // Step 2: light up W2 connections from each hidden neuron, fading in output bars
+  t += STEP;
+  setTimeout(() => {
+    narrationEl.textContent = `Step 2 — Now each output digit (0-9) computes its own score: it takes ALL 8 hidden activations and multiplies each by its own learned weight for that hidden neuron, then adds them up. A digit gets a high score when the neurons that fired strongly are ones this output has learned to "trust" (positive weight) for that digit.`;
+    svgRefs.w2Lines.forEach(({line}) => line.setAttribute('opacity', '0.7'));
+  }, t);
+
+  // Step 3: reveal output bars one at a time, fastest = winner highlighted last
+  outputRowFills.forEach(({row, fill, pctEl, p, d}, i) => {
+    t += 220;
+    setTimeout(() => {
+      fill.style.width = (p*100).toFixed(1)+'%';
+      pctEl.textContent = (p*100).toFixed(1)+'%';
+      const svgBar = svgRefs.outputBars[d];
+      svgBar.fill.setAttribute('width', (p*60).toFixed(1));
+      if(d === predicted){
+        row.classList.add('winner');
+        fill.classList.add('winner');
+        svgBar.fill.setAttribute('fill', 'var(--infer-accent)');
+        svgBar.label.setAttribute('fill', 'var(--infer-accent)');
+      }
+    }, t);
+  });
+
+  // Step 4: final narration + result box
+  t += STEP;
+  setTimeout(() => {
+    narrationEl.textContent = `Step 3 — Output neuron ${predicted} ended up with the highest score (${outRaw[predicted].toFixed(2)} before normalizing), so after converting all 10 scores into probabilities that sum to 100%, digit ${predicted} wins with ${(maxProb*100).toFixed(1)}% confidence. Nothing here was "if curve then 5" — it's purely: which combination of these specific 8 numbers, multiplied by these specific learned weights, produced the biggest sum.`;
+
+    hiddenCalcDetailEl.textContent =
+      "Each H_n activation = sigmoid( sum over all 64 pixels of pixel × that neuron's weight for that pixel ). " +
+      "The mini grid on the left is that weight pattern — high activation means your drawing overlaps well with the bright/dark regions of that pattern. " +
+      "The label in parentheses (e.g. 'top+') is just a rough automatic description of which region of the 8×8 grid this neuron's weights emphasize most — it's not a name the network was given, it's something we can observe after training.";
+
+    inferResultEl.innerHTML = `Each output score = sum over all 8 hidden activations × that output's weight for each hidden neuron, then turned into a probability via softmax.<span class="big">Predicted digit: ${predicted}</span>Confidence: ${(maxProb*100).toFixed(1)}%`;
+
+    // highlight the winning digit's column in the W2 table, and rows of strongly-activated neurons
+    const rows = document.querySelectorAll('#w2Table tr');
+    for(let h=0; h<N_HIDDEN; h++){
+      const cells = rows[h+1].querySelectorAll('td');
+      const cell = cells[predicted];
+      cell.classList.add('winner-col');
+      if(hidden[h] > 0.6) cell.classList.add('active-row');
+    }
+  }, t);
+});
+</script>
+</body>
+</html>
