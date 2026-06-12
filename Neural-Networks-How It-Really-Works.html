@@ -362,6 +362,39 @@
     <p>
       Each analyst carries a private <strong>checklist of 64 numbers</strong> — one number for each pixel position. This checklist is called a <strong>weight list</strong>. At the start, every number on every checklist is just a random guess.
     </p>
+
+    <div class="callout cyan">
+      <div class="callout-title">Why exactly 64 numbers — and not 74 or 100?</div>
+      <p style="margin-bottom:10px;">The 64 comes directly from the image size you choose <em>before</em> training begins — not from any formula. Our grid is 8 pixels wide × 8 pixels tall = <strong>64 pixels total</strong>. Each analyst needs exactly one weight number per pixel, so the checklist must have exactly 64 slots.</p>
+      <p style="margin-bottom:10px;">This is a design decision the engineer makes upfront. Bigger grids preserve more detail but require more training data and time:</p>
+      <table style="width:100%; font-size:13px; border-collapse:collapse; margin:8px 0 10px;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:6px 10px; background:#e0f2fe; border:1px solid #bae6fd;">Grid size</th>
+            <th style="padding:6px 10px; background:#e0f2fe; border:1px solid #bae6fd;">Pixels (= checklist length)</th>
+            <th style="padding:6px 10px; background:#e0f2fe; border:1px solid #bae6fd;">What it means</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:6px 10px; border:1px solid #bae6fd; font-family:'JetBrains Mono',monospace;">8 × 8</td>
+            <td style="padding:6px 10px; border:1px solid #bae6fd; text-align:center; font-family:'JetBrains Mono',monospace;">64</td>
+            <td style="padding:6px 10px; border:1px solid #bae6fd;">This tutorial — simple &amp; fast, but blurry digits</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 10px; border:1px solid #bae6fd; font-family:'JetBrains Mono',monospace;">28 × 28</td>
+            <td style="padding:6px 10px; border:1px solid #bae6fd; text-align:center; font-family:'JetBrains Mono',monospace;">784</td>
+            <td style="padding:6px 10px; border:1px solid #bae6fd;">Real MNIST digit dataset — much clearer</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 10px; border:1px solid #bae6fd; font-family:'JetBrains Mono',monospace;">224 × 224</td>
+            <td style="padding:6px 10px; border:1px solid #bae6fd; text-align:center; font-family:'JetBrains Mono',monospace;">150,528</td>
+            <td style="padding:6px 10px; border:1px solid #bae6fd;">Modern photo recognition models</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin-bottom:0;"><strong>The rule:</strong> whatever grid size you pick, every image — during training and during prediction — gets resized to that exact size first. If you chose 8×8, every user's photo gets squashed into 64 pixels before the network sees it. The network itself never changes size; the pre-processing step does all the resizing.</p>
+    </div>
   </div>
 
 
@@ -534,6 +567,22 @@
     <p>
       Why did digit 4 win so clearly? Look at which analysts fired strongly: H1 (0.92), H3 (0.95), H5 (0.88), H6 (0.99), H8 (0.66). Now look at the trust table — digit 4 has big positive trust numbers for exactly H5 (+1.8), H6 (+2.1), and H8 (+1.5). Those analysts fired hard AND digit 4 trusted them heavily, so the contributions stacked up. Meanwhile those same analysts actually <em>hurt</em> digit 3's score, because digit 3's trust for them is negative.
     </p>
+
+    <div class="callout amber">
+      <div class="callout-title">Does the network score ALL digits — even when the answer seems obvious?</div>
+      <p style="margin-bottom:10px;"><strong>Yes, always — every single time.</strong> The network has no idea what you drew. It cannot peek at the image and think "that looks like a 4, let me skip scoring the others." Instead it mechanically calculates a score for <em>every</em> digit it was trained on, then simply picks the highest.</p>
+      <p style="margin-bottom:10px;">Think of it like a race where every runner must finish before a winner is declared — even if one runner is far ahead. The "winner" is only decided at the finish line by comparing all scores side by side.</p>
+      <p style="margin-bottom:10px;">In our example only digits 3 and 4 were trained, so two scores are computed. But if the network were trained on all ten digits (0–9), it would compute <strong>10 scores</strong> for every single input, then pick the highest one:</p>
+      <div style="background:#fff8e1; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; font-family:'JetBrains Mono',monospace; font-size:13px; line-height:2; margin-bottom:10px;">
+        <span style="display:block; color:#6b6560;">── You draw a "4" — network computes all 10 scores ──</span>
+        <span style="display:block;">Digit 0 → score: 0.31 &nbsp; Digit 1 → score: 0.12</span>
+        <span style="display:block;">Digit 2 → score: 0.44 &nbsp; Digit 3 → score: 0.79</span>
+        <span style="display:block; color:#15803d; font-weight:700;">Digit 4 → score: 5.39 &nbsp; ← highest → prediction: 4 ✓</span>
+        <span style="display:block;">Digit 5 → score: 0.22 &nbsp; Digit 6 → score: 0.08</span>
+        <span style="display:block;">Digit 7 → score: 0.55 &nbsp; Digit 8 → score: 0.19 &nbsp; Digit 9 → score: 0.37</span>
+      </div>
+      <p style="margin-bottom:0;">This also means: if your handwriting is ambiguous, the scores for two digits will be close together, and softmax will show something like 52% vs 48% — the network honestly reflects its own uncertainty.</p>
+    </div>
 
     <h3 style="font-size:18px; font-weight:600; margin: 28px 0 12px;">Step 3 — Convert the raw scores into percentages</h3>
 
