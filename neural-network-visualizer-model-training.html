@@ -354,6 +354,9 @@
   .formula-box .eq { color: var(--infer-accent); }
   .formula-box .result { color: var(--good); font-weight: 700; }
   .formula-box .term-on { color: var(--train-accent); }
+  .formula-box .term-h { color: var(--infer-accent); }
+  .formula-box .term-w2pos { color: var(--train-accent); }
+  .formula-box .term-w2neg { color: #7a9fd4; }
 
   /* ===================== INFERENCE SECTION ===================== */
 
@@ -1272,9 +1275,12 @@ document.getElementById('inferBtn').addEventListener('click', () => {
     );
   });
   hiddenCalcDetailEl.innerHTML = '';
+  const outputCalcDetailEl = document.getElementById('outputCalcDetail');
+  outputCalcDetailEl.innerHTML = '';
 
   outputBarsEl.innerHTML = '';
   const outputRowFills = [];
+  const outputFormulas = [];
   probs.forEach((p, d) => {
     const row = document.createElement('div');
     row.className = 'obar-row';
@@ -1294,6 +1300,19 @@ document.getElementById('inferBtn').addEventListener('click', () => {
     row.appendChild(pctEl);
     outputBarsEl.appendChild(row);
     outputRowFills.push({row, fill, pctEl, p, d});
+
+    // build W2 formula: score[d] = b2[d] + sum_h( W2[d][h] * hidden[h] )
+    const terms2 = hidden.map((act, h) => {
+      const w = W2[d][h];
+      const prod = w * act;
+      const wClass = w >= 0 ? 'term-w2pos' : 'term-w2neg';
+      return `(<span class="${wClass}">${w.toFixed(3)}</span> × <span class="term-h">${act.toFixed(3)}</span>)`;
+    });
+    const rawScore = outRaw[d];
+    outputFormulas.push(
+      `<strong>Digit ${d}</strong>: score = ${b2[d].toFixed(3)} (bias) + ${terms2.join(' + ')}<br>` +
+      `&nbsp;&nbsp;= <span class="eq">${rawScore.toFixed(3)}</span> → softmax → <span class="result">${(p*100).toFixed(1)}%</span>`
+    );
   });
 
   inferResultEl.innerHTML = 'Computing…';
@@ -1350,6 +1369,13 @@ document.getElementById('inferBtn').addEventListener('click', () => {
         svgBar.fill.setAttribute('fill', 'var(--infer-accent)');
         svgBar.label.setAttribute('fill', 'var(--infer-accent)');
       }
+
+      // append W2 formula box in sync with bar
+      const fbox2 = document.createElement('div');
+      fbox2.className = 'formula-box';
+      if(d === predicted) fbox2.style.borderColor = 'var(--infer-accent)';
+      fbox2.innerHTML = outputFormulas[d];
+      outputCalcDetailEl.appendChild(fbox2);
     }, t);
   });
 
@@ -1358,10 +1384,25 @@ document.getElementById('inferBtn').addEventListener('click', () => {
   setTimeout(() => {
     narrationEl.textContent = `Step 3 — Output neuron ${predicted} ended up with the highest score (${outRaw[predicted].toFixed(2)} before normalizing), so after converting all 10 scores into probabilities that sum to 100%, digit ${predicted} wins with ${(maxProb*100).toFixed(1)}% confidence. Nothing here was "if curve then 5" — it's purely: which combination of these specific 8 numbers, multiplied by these specific learned weights, produced the biggest sum.`;
 
-    hiddenCalcDetailEl.textContent =
+    // keep the formula boxes visible — prepend an explanation note above them
+    const noteEl = document.createElement('div');
+    noteEl.className = 'formula-box';
+    noteEl.style.marginBottom = '6px';
+    noteEl.textContent =
       "Each H_n activation = sigmoid( sum over all 64 pixels of pixel × that neuron's weight for that pixel ). " +
       "The mini grid on the left is that weight pattern — high activation means your drawing overlaps well with the bright/dark regions of that pattern. " +
-      "The label in parentheses (e.g. 'top+') is just a rough automatic description of which region of the 8×8 grid this neuron's weights emphasize most — it's not a name the network was given, it's something we can observe after training.";
+      "The label in parentheses (e.g. 'top+') is a rough automatic description of which region of the 8×8 grid this neuron's weights emphasize most.";
+    hiddenCalcDetailEl.insertBefore(noteEl, hiddenCalcDetailEl.firstChild);
+
+    // prepend explanation note above W2 formula boxes
+    const noteW2 = document.createElement('div');
+    noteW2.className = 'formula-box';
+    noteW2.style.marginBottom = '6px';
+    noteW2.textContent =
+      "Each digit's score = its bias + (W2[digit][H1] × H1 activation) + … + (W2[digit][H8] × H8 activation). " +
+      "Amber weights trust this analyst for that digit; blue weights treat a loud analyst as evidence against it. " +
+      "Scores are turned into percentages via softmax so all 10 add up to 100%.";
+    outputCalcDetailEl.insertBefore(noteW2, outputCalcDetailEl.firstChild);
 
     inferResultEl.innerHTML = `Each output score = sum over all 8 hidden activations × that output's weight for each hidden neuron, then turned into a probability via softmax.<span class="big">Predicted digit: ${predicted}</span>Confidence: ${(maxProb*100).toFixed(1)}%`;
 
