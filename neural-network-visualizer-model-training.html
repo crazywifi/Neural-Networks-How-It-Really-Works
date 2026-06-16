@@ -524,6 +524,110 @@
     </div>
   </header>
 
+  <!-- ============ CONCEPT INTRO SECTION ============ -->
+  <section id="conceptIntro" style="margin-bottom:56px;">
+    <div class="section-label" style="color:#a78bfa;">Part 0 — Before You Start</div>
+    <h2>How does a neural network actually work?</h2>
+    <p class="section-desc">Read through this before training. It will make every step below much easier to follow.</p>
+
+    <div style="display:flex; flex-direction:column; gap:16px;">
+
+      <!-- Step 1: Image as numbers -->
+      <div class="panel" style="display:grid; grid-template-columns:1fr 3fr; gap:24px; align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+          <div style="display:grid; grid-template-columns:repeat(8,1fr); gap:2px; width:100%; aspect-ratio:1; background:var(--panel-border); border-radius:6px; overflow:hidden;" id="conceptPixelGrid"></div>
+          <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); text-align:center;">an 8×8 pixel grid</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#a78bfa; margin-bottom:6px;">Step 1 — The image becomes numbers</div>
+          <p style="margin:0 0 8px; font-size:15px; line-height:1.7;">The computer does not see curves or shapes. It sees a grid of tiny squares — pixels. Each pixel is simply <strong>1</strong> (ink is there) or <strong>0</strong> (blank). So a handwritten digit becomes nothing more than a list of 64 ones and zeros.</p>
+          <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-dim); background:#0e1014; border:1px solid var(--panel-border); border-radius:6px; padding:8px 12px;">
+            [ 0, 0, 1, 1, 1, 0, 0, 0,<br>
+            &nbsp; 0, 1, 0, 0, 0, 1, 0, 0, … ]
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Analysts -->
+      <div class="panel" style="display:grid; grid-template-columns:1fr 3fr; gap:24px; align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+          <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center;">
+            <div id="analystDots"></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#a78bfa; margin-bottom:6px;">Step 2 — Eight analysts examine the image</div>
+          <p style="margin:0 0 8px; font-size:15px; line-height:1.7;">Inside the network there are <strong>8 hidden neurons</strong> — think of them as 8 analysts, each studying the same 64 pixels but looking for a different pattern. Each analyst keeps a private <strong>checklist of 64 numbers</strong>, one number per pixel position.</p>
+          <p style="margin:0; font-size:14px; color:var(--text-dim); line-height:1.6;">At the very beginning, these checklists are completely random. The analysts know nothing. Their answers are meaningless noise. This is fine — training will fix that.</p>
+        </div>
+      </div>
+
+      <!-- Step 3: Training -->
+      <div class="panel" style="display:grid; grid-template-columns:1fr 3fr; gap:24px; align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="position:relative; width:80px; height:80px;">
+            <div style="position:absolute; inset:0; border-radius:50%; border:2px solid var(--train-accent); opacity:0.3;"></div>
+            <div style="position:absolute; inset:8px; border-radius:50%; border:2px solid var(--train-accent); opacity:0.5;"></div>
+            <div style="position:absolute; inset:16px; border-radius:50%; background:var(--train-accent-dim); border:2px solid var(--train-accent); display:flex; align-items:center; justify-content:center;">
+              <span style="font-family:var(--font-mono); font-size:11px; color:var(--train-accent);">nudge</span>
+            </div>
+          </div>
+          <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-dim); text-align:center;">repeat × thousands</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#a78bfa; margin-bottom:6px;">Step 3 — Training: learning by trial and error</div>
+          <p style="margin:0 0 8px; font-size:15px; line-height:1.7;">We show the network a handwritten <strong>3</strong> and say "the correct answer is 3." The network guesses. If it's wrong, every number in every checklist gets nudged by a tiny amount — just enough to be slightly less wrong next time. Repeat thousands of times.</p>
+          <p style="margin:0; font-size:14px; color:var(--text-dim); line-height:1.6;">Over time, the analysts stop being random. They specialise. One might start noticing the top curve. Another might notice two horizontal lines. <em>Nobody told them to do this</em> — they figured it out on their own, because it helped reduce mistakes.</p>
+        </div>
+      </div>
+
+      <!-- Step 4: Two tables -->
+      <div class="panel">
+        <div style="font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#a78bfa; margin-bottom:12px;">Step 4 — What training leaves behind: two tables of weights</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div style="background:#0e1014; border:1px solid var(--train-accent-dim); border-radius:8px; padding:14px;">
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--train-accent); margin-bottom:6px;">Table W1 — the checklists</div>
+            <p style="margin:0; font-size:14px; color:var(--text-dim); line-height:1.6;">8 analysts × 64 pixels = 512 numbers. A positive number means <em>"if this pixel has ink, raise my score."</em> A negative number means <em>"if this pixel has ink, lower my score."</em> These are the patterns each analyst learned.</p>
+          </div>
+          <div style="background:#0e1014; border:1px solid var(--train-accent-dim); border-radius:8px; padding:14px;">
+            <div style="font-family:var(--font-mono); font-size:12px; color:var(--train-accent); margin-bottom:6px;">Table W2 — the trust table</div>
+            <p style="margin:0; font-size:14px; color:var(--text-dim); line-height:1.6;">8 analysts × 10 digits = 80 numbers. Each number answers: <em>"When analyst H5 fires strongly, does that push the score for digit 4 up or down?"</em> This is how the final decision gets made.</p>
+          </div>
+        </div>
+        <p style="margin:14px 0 0; font-size:14px; color:var(--text-dim); line-height:1.6;">Both tables together are called the model's <strong style="color:var(--train-accent);">weights</strong> — the permanent memory of everything it learned. You can see both tables update live in Part 1 below.</p>
+      </div>
+
+      <!-- Step 5: Prediction -->
+      <div class="panel" style="display:grid; grid-template-columns:1fr 3fr; gap:24px; align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <div style="display:flex; flex-direction:column; gap:4px; width:100%;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); width:20px;">3</div>
+              <div style="flex:1; height:10px; background:var(--infer-accent-dim); border-radius:4px; overflow:hidden;"><div style="width:12%; height:100%; background:var(--infer-accent);"></div></div>
+              <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); width:34px;">1.2%</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <div style="font-family:var(--font-mono); font-size:11px; color:var(--infer-accent); width:20px; font-weight:700;">4</div>
+              <div style="flex:1; height:10px; background:var(--infer-accent-dim); border-radius:4px; overflow:hidden;"><div style="width:99%; height:100%; background:var(--infer-accent);"></div></div>
+              <div style="font-family:var(--font-mono); font-size:11px; color:var(--infer-accent); width:34px; font-weight:700;">98.8%</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); width:20px;">7</div>
+              <div style="flex:1; height:10px; background:var(--infer-accent-dim); border-radius:4px; overflow:hidden;"><div style="width:0%; height:100%; background:var(--infer-accent);"></div></div>
+              <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-dim); width:34px;">0%</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#a78bfa; margin-bottom:6px;">Step 5 — Prediction: arithmetic, not understanding</div>
+          <p style="margin:0 0 8px; font-size:15px; line-height:1.7;">You hand it a new image. Each analyst checks their checklist against the drawing and gives a confidence score (0 to 1). The trust table combines all 8 scores — one weighted sum per digit. The digit with the highest sum wins. The scores are converted to percentages using a formula called softmax.</p>
+          <p style="margin:0; font-size:14px; color:var(--text-dim); line-height:1.6;">The network never <em>"understands"</em> what a 4 looks like. It just does: <strong style="color:var(--infer-accent);">which combination of these 8 numbers, times these weights, gives the biggest total?</strong> That's the entire prediction, start to finish.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
   <!-- ============ TRAINING SECTION ============ -->
   <section>
     <div class="section-label train">Part 1 — Training</div>
@@ -677,6 +781,37 @@
 </div>
 
 <script>
+// ---- Concept Intro Visuals ----
+(function() {
+  // pixel grid showing a rough "4"
+  const pixelGrid = document.getElementById('conceptPixelGrid');
+  const fourPattern = [
+    0,0,0,1,1,0,0,0,
+    0,0,1,0,1,0,0,0,
+    0,1,0,0,1,0,0,0,
+    1,0,0,0,1,0,0,0,
+    1,1,1,1,1,1,1,0,
+    0,0,0,0,1,0,0,0,
+    0,0,0,0,1,0,0,0,
+    0,0,0,0,0,0,0,0,
+  ];
+  fourPattern.forEach(v => {
+    const c = document.createElement('div');
+    c.style.cssText = `background:${v ? '#f0a857' : '#0e1014'}; aspect-ratio:1;`;
+    pixelGrid.appendChild(c);
+  });
+
+  // analyst dots H1–H8
+  const analystDots = document.getElementById('analystDots');
+  analystDots.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; justify-content:center;';
+  for (let i = 1; i <= 8; i++) {
+    const dot = document.createElement('div');
+    dot.style.cssText = 'width:36px; height:36px; border-radius:50%; background:#1c2128; border:1px solid #2d333b; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:11px; color:#9aa3ad;';
+    dot.textContent = 'H' + i;
+    analystDots.appendChild(dot);
+  }
+})();
+
 const SIZE = 8;
 const N_INPUT = SIZE * SIZE;
 const N_HIDDEN = 8;
