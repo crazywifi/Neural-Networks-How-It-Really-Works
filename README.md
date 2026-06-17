@@ -14,3 +14,7 @@ https://crazywifi.github.io/Neural-Networks-How-It-Really-Works/Neural-Networks-
 **ML10-2023-model-poisoning**
 
 https://crazywifi.github.io/Neural-Networks-How-It-Really-Works/ML10-2023-model-poisoning-explainer.html
+
+**Neural Network Explain**
+
+https://crazywifi.github.io/Neural-Networks-How-It-Really-Works/neural_network_Explain.html
