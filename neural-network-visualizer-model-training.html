@@ -495,6 +495,59 @@
     line-height: 1.6;
   }
 
+  /* ===================== MODEL POISONING ATTACK SECTION ===================== */
+
+  .section-label.attack { color: var(--bad); }
+  .swatch.attack { background: var(--bad); }
+
+  .poison-panel { border-color: var(--bad); }
+
+  .poison-select-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  select.poison-select {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: #0e1014;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 9px 10px;
+    min-width: 130px;
+  }
+  select.poison-select:disabled { opacity: 0.4; }
+
+  .btn.danger {
+    background: var(--bad);
+    border-color: var(--bad);
+    color: #2a0e0e;
+    font-weight: 700;
+  }
+  .btn.danger:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn.danger:disabled { background: #0e1014; color: var(--text-dim); border-color: var(--panel-border); font-weight:400; }
+
+  .attack-banner {
+    border: 1px solid var(--bad);
+    background: rgba(224,122,122,0.08);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .attack-banner strong { color: var(--bad); }
+
+  .w2-cell.poisoned-col {
+    box-shadow: inset 0 0 0 2px var(--bad) !important;
+    position: relative;
+  }
+  .w2-table th.poisoned-col-head { color: var(--bad) !important; font-weight: 700; }
+
   footer {
     text-align: center;
     color: var(--text-dim);
@@ -521,6 +574,7 @@
     <div class="legend">
       <div class="legend-item"><span class="swatch train"></span> Training — shapes the weight tables</div>
       <div class="legend-item"><span class="swatch infer"></span> Inference — uses the weights on a new image</div>
+      <div class="legend-item"><span class="swatch attack"></span> Attack — someone edits the weight tables directly</div>
     </div>
   </header>
 
@@ -774,6 +828,72 @@
     </div>
   </section>
 
+  <!-- ============ MODEL POISONING ATTACK SECTION ============ -->
+  <section>
+    <div class="section-label attack">Part 3 — Attack Simulation · OWASP ML10:2023 Model Poisoning</div>
+    <h2>What happens when someone edits the weights directly</h2>
+    <p class="section-desc">
+      Everything above happened the honest way: you gave examples, and the network adjusted its own
+      512 + 80 numbers a little at a time through gradient descent. <strong style="color:var(--bad);">Model
+      poisoning</strong> skips that process entirely. Per OWASP's ML Security Top 10, this attack class
+      covers an attacker directly rewriting a model's learned parameters so it behaves in an
+      undesirable way — no new training data required, just write access to the weight file itself
+      (a compromised model registry, an insecure checkpoint download, a malicious insider with
+      access to the saved model, an unprotected file in a CI/CD pipeline, …). OWASP's own example for
+      this exact risk is a bank's handwriting-recognition model having its parameters quietly edited
+      so it reads one digit as another — which is precisely what you're about to do below.
+    </p>
+    <p class="section-desc">
+      This is different from <strong>data poisoning</strong> (ML02), which corrupts the training
+      examples themselves. Here, the 8 analysts (Table W1) stay completely untouched and still
+      recognize the same pixel patterns correctly — only the "trust table" (Table W2) that converts
+      analyst opinions into a final digit gets rewired, after training is already finished.
+    </p>
+
+    <div class="panel poison-panel">
+      <h3 style="margin:0 0 6px;">Step 1 — Which digits has this model been trained on?</h3>
+      <p class="calc-detail" id="poisonTrainedList" style="margin-bottom:16px;">No examples added yet — go to Part 1, add and train at least two different digits first.</p>
+
+      <h3 style="margin:0 0 10px;">Step 2 — Pick two trained digits to swap</h3>
+      <div class="poison-select-row">
+        <select class="poison-select" id="poisonDigitA"></select>
+        <span style="font-family:var(--font-mono); color:var(--text-dim); font-size:13px;">⇄ swap weights with</span>
+        <select class="poison-select" id="poisonDigitB"></select>
+      </div>
+      <div class="btn-row">
+        <button class="btn danger" id="poisonBtn" disabled>⚠ Simulate attack: swap these weights</button>
+        <button class="btn" id="restorePoisonBtn" disabled>Restore original (untampered) weights</button>
+      </div>
+      <div class="attack-banner" id="poisonStatus" style="margin-top:14px;">
+        Pick two digits you've trained above, then click "Simulate attack" — no training will happen, the saved numbers will just be swapped, exactly as a real attacker would do to a model file.
+      </div>
+      <div id="poisonLog" class="calc-detail" style="margin-top:8px;"></div>
+
+      <h3 style="margin-top:22px;">Step 3 — Table W2, after tampering</h3>
+      <p class="calc-detail" style="margin-bottom:10px;">
+        Same trust table as Part 1 — it's the same underlying numbers, just mirrored here for
+        convenience. The two swapped columns are outlined in <span style="color:var(--bad);">red</span>:
+        each one now holds exactly the values the <em>other</em> digit used to have.
+      </p>
+      <div id="poisonW2TableMirror"></div>
+      <div class="scale-note">
+        <span class="scale-bar"></span>
+        <span>negative vote ←→ positive vote · red outline = this column belongs to a different digit now</span>
+      </div>
+
+      <h3 style="margin-top:22px;">Step 4 — Test it</h3>
+      <p class="calc-detail" style="margin-bottom:10px;">
+        Draw one of the swapped digits in the "Draw a digit to test" grid above (Part 2) and click
+        "Run inference" again — same drawing, same analysts, same pixels. Watch the prediction come
+        back as the <em>other</em> digit. Nothing about your handwriting changed; only the file that
+        stores the model's decisions did.
+      </p>
+      <div class="btn-row">
+        <button class="btn infer-primary" id="jumpToTestBtn">↑ Jump to "Draw a digit to test"</button>
+      </div>
+    </div>
+  </section>
+
   <footer>
     64 inputs → 8 hidden neurons (sigmoid) → 10 outputs (softmax) · trained live in your browser with plain gradient descent
   </footer>
@@ -1021,6 +1141,7 @@ document.getElementById('addBtn').addEventListener('click', () => {
   } else {
     trainStatus.textContent = `Add at least one more example of a different digit (you only have digit ${[...new Set(trainSet.map(e=>e.label))][0]} so far).`;
   }
+  if(typeof renderPoisonDigitOptions === 'function') renderPoisonDigitOptions();
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => {
@@ -1034,6 +1155,13 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   refreshW1Lines();
   refreshW2Lines();
   trainStatus.textContent = 'Weights reset to random noise. Train again to reshape them.';
+  poisonOriginalSnapshot = null;
+  poisonSwapHistory = [];
+  poisonCurrentHighlight = null;
+  if(typeof restorePoisonBtn !== 'undefined') restorePoisonBtn.disabled = true;
+  if(typeof renderPoisonLog === 'function') renderPoisonLog();
+  if(typeof poisonStatusEl !== 'undefined') poisonStatusEl.textContent = 'Weights were reset to random noise, so any poisoning simulation was cleared too. Train the network again, then try poisoning it once more.';
+  if(typeof renderPoisonDigitOptions === 'function') renderPoisonDigitOptions();
 });
 
 trainBtn.addEventListener('click', () => {
@@ -1048,6 +1176,15 @@ trainBtn.addEventListener('click', () => {
   refreshW2Lines();
   renderTrainLog();
   trainStatus.textContent = `Ran 5 training passes. Total epochs: ${epoch}. The highlighted cells below show which weights just shifted, and by how much.`;
+  if(typeof poisonOriginalSnapshot !== 'undefined' && poisonOriginalSnapshot){
+    poisonOriginalSnapshot = null;
+    poisonSwapHistory = [];
+    poisonCurrentHighlight = null;
+    restorePoisonBtn.disabled = true;
+    renderPoisonLog();
+    poisonStatusEl.textContent = 'Real training just overwrote the poisoned weights, so the tampering simulation was cleared. Pick two digits above to poison it again.';
+  }
+  if(typeof renderPoisonDigitOptions === 'function') renderPoisonDigitOptions();
 });
 
 // ---------- hidden neuron templates ----------
@@ -1105,22 +1242,30 @@ function renderTemplates(W1Before){
     hiddenTemplatesEl.appendChild(card);
   }
 }
-function renderW2Table(W2Before){
-  const container = document.getElementById('w2Table');
+function buildW2TableHTML(W2Before, highlightDigits){
   let html = '<table class="w2-table"><tr><th class="row-head">Neuron \\ Digit</th>';
-  for(let d=0;d<N_OUTPUT;d++) html += `<th>${d}</th>`;
+  for(let d=0;d<N_OUTPUT;d++){
+    const isHL = highlightDigits && highlightDigits.includes(d);
+    html += `<th${isHL?' class="poisoned-col-head"':''}>${d}</th>`;
+  }
   html += '</tr>';
   for(let h=0;h<N_HIDDEN;h++){
     html += `<tr><th class="row-head">H${h+1}</th>`;
     for(let d=0;d<N_OUTPUT;d++){
       const w = W2[d][h];
       const changed = W2Before && Math.abs(w - W2Before[d][h]) > 0.03;
-      html += `<td class="w2-cell${changed?' changed':''}" style="background:${weightToColor(w)}">${w.toFixed(2)}</td>`;
+      const isHL = highlightDigits && highlightDigits.includes(d);
+      html += `<td class="w2-cell${changed?' changed':''}${isHL?' poisoned-col':''}" style="background:${weightToColor(w)}">${w.toFixed(2)}</td>`;
     }
     html += '</tr>';
   }
   html += '</table>';
-  container.innerHTML = html;
+  return html;
+}
+function renderW2Table(W2Before, highlightDigits){
+  document.getElementById('w2Table').innerHTML = buildW2TableHTML(W2Before, highlightDigits);
+  const mirror = document.getElementById('poisonW2TableMirror');
+  if(mirror) mirror.innerHTML = buildW2TableHTML(W2Before, highlightDigits);
 }
 renderTemplates();
 renderW2Table();
@@ -1551,6 +1696,129 @@ document.getElementById('inferBtn').addEventListener('click', () => {
     }
   }, t);
 });
+
+// ---------- Part 3: Model Poisoning Attack Simulation (OWASP ML10:2023) ----------
+let poisonOriginalSnapshot = null; // {W2, b2} taken right before the first swap, so we can restore
+let poisonSwapHistory = [];        // [{a,b}, ...] every swap performed since the last restore
+let poisonCurrentHighlight = null; // [a,b] of the most recent swap, for re-render highlighting
+
+const poisonDigitASel = document.getElementById('poisonDigitA');
+const poisonDigitBSel = document.getElementById('poisonDigitB');
+const poisonBtn = document.getElementById('poisonBtn');
+const restorePoisonBtn = document.getElementById('restorePoisonBtn');
+const poisonStatusEl = document.getElementById('poisonStatus');
+const poisonLogEl = document.getElementById('poisonLog');
+const poisonTrainedListEl = document.getElementById('poisonTrainedList');
+
+function getTrainedDigits(){
+  return [...new Set(trainSet.map(e => e.label))].sort((a,b) => a-b);
+}
+
+function renderPoisonDigitOptions(){
+  const trained = getTrainedDigits();
+
+  if(trained.length === 0){
+    poisonTrainedListEl.textContent = 'No examples added yet — go to Part 1, add and train at least two different digits first.';
+  } else {
+    poisonTrainedListEl.innerHTML = `Trained on: <strong style="color:var(--train-accent);">${trained.join(', ')}</strong>${epoch===0 ? ' &nbsp;(tip: click "Train" in Part 1 at least once so these digits actually predict correctly before you poison them)' : ''}`;
+  }
+
+  const prevA = poisonDigitASel.value, prevB = poisonDigitBSel.value;
+  [poisonDigitASel, poisonDigitBSel].forEach(sel => sel.innerHTML = '');
+
+  if(trained.length < 2){
+    [poisonDigitASel, poisonDigitBSel].forEach(sel => {
+      const opt = document.createElement('option');
+      opt.textContent = 'train ≥2 digits first';
+      opt.value = '';
+      sel.appendChild(opt);
+      sel.disabled = true;
+    });
+    poisonBtn.disabled = true;
+    return;
+  }
+
+  [poisonDigitASel, poisonDigitBSel].forEach(sel => {
+    sel.disabled = false;
+    trained.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = `Digit ${d}`;
+      sel.appendChild(opt);
+    });
+  });
+  // keep prior selections if still valid, otherwise default to first two distinct trained digits
+  poisonDigitASel.value = trained.includes(+prevA) ? prevA : trained[0];
+  poisonDigitBSel.value = trained.includes(+prevB) && +prevB !== +poisonDigitASel.value ? prevB : trained.find(d => d !== +poisonDigitASel.value);
+  updatePoisonBtnState();
+}
+
+function updatePoisonBtnState(){
+  const trained = getTrainedDigits();
+  const a = poisonDigitASel.value, b = poisonDigitBSel.value;
+  poisonBtn.disabled = !(trained.length >= 2 && a !== '' && b !== '' && a !== b);
+}
+poisonDigitASel.addEventListener('change', updatePoisonBtnState);
+poisonDigitBSel.addEventListener('change', updatePoisonBtnState);
+
+function renderPoisonLog(){
+  if(!poisonSwapHistory.length){ poisonLogEl.innerHTML = ''; return; }
+  poisonLogEl.innerHTML = '<strong>Tampering history (since last restore):</strong><br>' +
+    poisonSwapHistory.map((s,i) => `${i+1}. Output weights for digit <strong>${s.a}</strong> and digit <strong>${s.b}</strong> were swapped directly — no training involved.`).join('<br>');
+}
+
+poisonBtn.addEventListener('click', () => {
+  const a = +poisonDigitASel.value, b = +poisonDigitBSel.value;
+  if(a === b || isNaN(a) || isNaN(b)) return;
+
+  if(!poisonOriginalSnapshot){
+    poisonOriginalSnapshot = { W2: W2.map(row => row.slice()), b2: b2.slice() };
+  }
+
+  const W2Before = W2.map(row => row.slice());
+
+  // THE ATTACK: directly overwrite two rows of the learned output-weight table.
+  // No forward pass, no backward pass, no training example was involved — this is
+  // exactly the "directly modifying the parameters in the model" scenario from
+  // OWASP ML10:2023, just done here with two array swaps instead of a hex editor.
+  [W2[a], W2[b]] = [W2[b], W2[a]];
+  [b2[a], b2[b]] = [b2[b], b2[a]];
+
+  poisonSwapHistory.push({a, b});
+  poisonCurrentHighlight = [a, b];
+  renderW2Table(W2Before, poisonCurrentHighlight);
+  refreshW2Lines();
+  renderPoisonLog();
+  restorePoisonBtn.disabled = false;
+
+  poisonStatusEl.innerHTML =
+    `<strong>⚠ Attack simulated.</strong> The output weights for digit ${a} and digit ${b} were swapped in place — ` +
+    `the model file now maps the 8 analysts' opinions to the wrong digit for both of these. The 8 analysts ` +
+    `themselves (Table W1) were never touched, so a drawing that clearly looks like a ${a} will still make the ` +
+    `same analysts fire the same way — but the trust table will now read that pattern as a ${b}, and vice versa. ` +
+    `Go redraw either digit in "Draw a digit to test" above and run inference to see it.`;
+});
+
+restorePoisonBtn.addEventListener('click', () => {
+  if(!poisonOriginalSnapshot) return;
+  const W2Before = W2.map(row => row.slice());
+  W2 = poisonOriginalSnapshot.W2.map(row => row.slice());
+  b2 = poisonOriginalSnapshot.b2.slice();
+  poisonOriginalSnapshot = null;
+  poisonSwapHistory = [];
+  poisonCurrentHighlight = null;
+  renderW2Table(W2Before);
+  refreshW2Lines();
+  renderPoisonLog();
+  restorePoisonBtn.disabled = true;
+  poisonStatusEl.textContent = 'Weights restored to their trained values — the model is no longer poisoned. Pick two digits above to simulate the attack again.';
+});
+
+document.getElementById('jumpToTestBtn').addEventListener('click', () => {
+  document.getElementById('testGrid').scrollIntoView({behavior:'smooth', block:'center'});
+});
+
+renderPoisonDigitOptions();
 </script>
 </body>
 </html>
